@@ -272,20 +272,25 @@ if models_exist:
                 st.success("Process stopped")
                 st.rerun()
     
-    # Image upload and inference
-    if st.session_state.inference_manager.is_ready:
-        st.header("🖼️ Image Upload & Inference")
+    # Image upload and inference - MOVED OUTSIDE the is_ready check
+    st.header("🖼️ Image Upload & Inference")
+    
+    # Show status message if process not ready
+    if not st.session_state.inference_manager.is_ready:
+        st.info("⏳ Please start the inference process first to enable image analysis.")
+    
+    # Image upload (always visible)
+    uploaded_file = st.file_uploader(
+        "Choose an image...", 
+        type=["jpg", "jpeg", "png", "bmp"],
+        disabled=not st.session_state.inference_manager.is_ready
+    )
+    
+    if uploaded_file is not None:
+        # Display uploaded image
+        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
         
-        # Image upload
-        uploaded_file = st.file_uploader(
-            "Choose an image...", 
-            type=["jpg", "jpeg", "png", "bmp"]
-        )
-        
-        if uploaded_file is not None:
-            # Display uploaded image
-            st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
-            
+        if st.session_state.inference_manager.is_ready:
             # Save uploaded file
             temp_image_path = st.session_state.model_manager.temp_dir / "image.jpg"
             with open(temp_image_path, "wb") as f:
@@ -318,6 +323,8 @@ if models_exist:
                     
                     st.header("💬 Response")
                     st.write(response)
+        else:
+            st.warning("🚫 Inference process must be running to analyze images.")
 else:
     st.info("Please download the model files first using the sidebar.")
 
