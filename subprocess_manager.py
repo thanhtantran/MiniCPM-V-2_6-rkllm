@@ -164,8 +164,8 @@ class StreamlitSubprocessManager:
             print(f"Question: {question}")
             print(f"Image Path: {image_path}")
             
-            # Send first line: Check the image in {{...}}
-            image_check_line = f"Check the image in {{{{{image_path}}}}}"
+            # Send first line: Read the image in {{...}} carefully.
+            image_check_line = f"Read the image in {{{{{image_path}}}}} carefully."
             print(f"First Line: {image_check_line}")
             self.input_queue.put(image_check_line)
             
@@ -183,6 +183,7 @@ class StreamlitSubprocessManager:
             response_lines = []
             start_time = time.time()
             collecting = False
+            finished = False
             
             while time.time() - start_time < 60:  # 60 second timeout
                 # Check if process is still running
@@ -203,12 +204,21 @@ class StreamlitSubprocessManager:
                     if not collecting and output.strip() and not output.startswith('==='):
                         collecting = True
                     
+                    # Check for finished marker
+                    if "(finished)" in output:
+                        finished = True
+                        # Remove the (finished) marker from the output
+                        output = output.replace("(finished)", "").strip()
+                        if output:  # Only add if there's content after removing (finished)
+                            response_lines.append(output)
+                        break
+                    
                     # Collect response lines
                     if collecting:
                         response_lines.append(output)
                     
-                    # Stop when we see the input prompt again
-                    if "Enter your input" in output:
+                    # Stop when we see the input prompt again (fallback)
+                    if "Enter your input" in output or "Enter another question" in output:
                         break
                         
                 except queue.Empty:
@@ -216,14 +226,38 @@ class StreamlitSubprocessManager:
                     continue
             
             if response_lines:
-                return '\n'.join(response_lines)
+                # Convert response to HTML format
+                html_response = self._convert_to_html('\n'.join(response_lines))
+                return html_response
             else:
-                return "Error: No response received"
+                return "<p>Error: No response received</p>"
                 
         except Exception as e:
             print(f"Exception during inference: {e}")
-            return f"Error during inference: {e}"
+            return f"<p>Error during inference: {e}</p>"
     
+    def _convert_to_html(self, text):
+        """Convert plain text response to HTML format"""
+        import html
+        
+        # Escape HTML characters
+        escaped_text = html.escape(text)
+        
+        # Convert line breaks to HTML
+        lines = escaped_text.split('\n')
+        html_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if line:
+                # Wrap non-empty lines in paragraph tags
+                html_lines.append(f"<p>{line}</p>")
+            else:
+                # Add line break for empty lines
+                html_lines.append("<br>")
+        
+        return '\n'.join(html_lines)
+
     def stop_process(self):
         """Stop the inference process"""
         print("=== STOPPING SUBPROCESS ===")
