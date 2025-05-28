@@ -19,7 +19,8 @@ TEMP_DIR = "temp_images"
 class ModelManager:
     def __init__(self):
         self.model_dir = Path(MODEL_DIR)
-        self.temp_dir = Path(TEMP_DIR)
+        # Fix: Create temp_dir relative to current working directory
+        self.temp_dir = Path.cwd() / TEMP_DIR
         self.temp_dir.mkdir(exist_ok=True)
         
     def check_model_files(self):
@@ -296,7 +297,7 @@ if models_exist:
     
     if uploaded_file is not None:
         # Display uploaded image
-        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+        st.image(uploaded_file, caption="Uploaded Image", use_container_width=True)
         
         if st.session_state.inference_manager.is_ready:
             # Save uploaded file
@@ -324,9 +325,17 @@ if models_exist:
             for i, question in enumerate(questions):
                 if st.button(f"🤔 {question}", key=f"q_{i}"):
                     with st.spinner(f"Processing: {question}"):
+                        # Fix: Use absolute path or just the filename
+                        try:
+                            # Try to get relative path, fallback to absolute if it fails
+                            image_path = temp_image_path.relative_to(Path.cwd())
+                        except ValueError:
+                            # If relative path fails, use absolute path
+                            image_path = temp_image_path.absolute()
+                        
                         response = st.session_state.inference_manager.send_question(
                             question, 
-                            temp_image_path.relative_to(Path.cwd())
+                            image_path
                         )
                     
                     st.header("💬 Response")
