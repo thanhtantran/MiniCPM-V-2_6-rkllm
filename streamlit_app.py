@@ -3,15 +3,130 @@ import os
 import time
 from pathlib import Path
 from huggingface_hub import snapshot_download
-from streamlit_multiprocess_inference import StreamlitInferenceManager
 from PIL import Image
 import tempfile
+import subprocess
+import threading
+import queue
+import re
+from multiprocessing import Process, Queue, Event
+import cv2
+import numpy as np
+from rkllm_binding import *
+from rknnlite.api.rknn_lite import RKNNLite
+import signal
 
 # Configuration
 MODEL_DIR = "model"
 HF_REPO = "thanhtantran/MiniCPM-V-2_6-rkllm"
 REQUIRED_FILES = ["qwen.rkllm", "vision_transformer.rknn"]
 TEMP_DIR = "temp_images"
+
+# Import the functions from multiprocess_inference.py
+from multiprocess_inference import vision_encoder_process, llm_process
+
+class StreamlitMultiprocessManager:
+    def __init__(self):
+        self.load_ready_queue = Queue()
+        self.embedding_queue = Queue()
+        self.img_path_queue = Queue()
+        self.prompt_queue = Queue()
+        self.inference_done_queue = Queue()
+        self.start_event = Event()
+        
+        self.vision_process = None
+        self.lm_process = None
+        self.is_ready = False
+        self.response_text = ""
+        
+    def start_processes(self):
+        """Start the vision and LLM processes"""
+        self.vision_process = Process(target=vision_encoder_process,
+                                    args=(self.load_ready_queue, self.embedding_queue, 
+                                         self.img_path_queue, self.start_event))
+        self.lm_process = Process(target=llm_process,
+                                args=(self.load_ready_queue, self.embedding_queue, 
+                                     self.prompt_queue, self.inference_done_queue, self.start_event))
+        
+        self.vision_process.start()
+        self.lm_process.start()
+        
+        # Wait for models to load
+        ready_count = 0
+        while ready_count < 2:
+            status = self.load_ready_queue.get()
+            print(f"Received ready signal: {status}")
+            ready_count += 1
+        
+        print("All models loaded, ready for inference...")
+        self.start_event.set()
+        self.is_ready = True
+        
+    def send_question(self, question, image_path):
+        """Send a question with image for inference"""
+        if not self.is_ready:
+            return "Error: Inference processes not ready"
+        
+        # Print debug info
+        print(f"\n=== USER INPUT ===")
+        print(f"Question: {question}")
+        print(f"Image Path: {image_path}")
+        print("==================")
+        
+        # Format the input like the original multiprocess_inference.py
+        full_input = f"{question} {{{{{image_path}}}}}"
+        
+        # Parse input like in original code
+        img_match = re.search(r'\{\{(.+?)\}\}', full_input)
+        if not img_match:
+            return "Error: No image path found in input"
+            
+        img_path = img_match.group(1)
+        
+        # Replace image marker with <image> tag
+        image_placeholder = '<image_id>0</image_id><image>\n'
+        prompt = f"""<|im_start|>system
+You are a helpful assistant.<|im_end|>
+<|im_start|>user
+{full_input.replace(img_match.group(0), image_placeholder)}<|im_end|>
+<|im_start|>assistant
+"""
+        
+        print(f"\n=== FORMATTED PROMPT ===")
+        print(prompt)
+        print("========================\n")
+        
+        # Send to processes
+        self.img_path_queue.put(img_path)
+        self.prompt_queue.put(prompt)
+        
+        # Wait for inference to complete
+        try:
+            status = self.inference_done_queue.get(timeout=60)
+            if status == "DONE":
+                return "Inference completed successfully. Check console for response."
+            else:
+                return "Error: Inference failed"
+        except:
+            return "Error: Inference timeout"
+            
+    def stop_processes(self):
+        """Stop the inference processes"""
+        if self.is_ready:
+            self.img_path_queue.put("STOP")
+            self.prompt_queue.put("STOP")
+            
+        if self.vision_process:
+            self.vision_process.join(timeout=5)
+            if self.vision_process.is_alive():
+                self.vision_process.terminate()
+                
+        if self.lm_process:
+            self.lm_process.join(timeout=5)
+            if self.lm_process.is_alive():
+                self.lm_process.terminate()
+                
+        self.is_ready = False
 
 class ModelManager:
     def __init__(self):
@@ -66,7 +181,7 @@ st.set_page_config(
 )
 
 st.title("🤖 MiniCPM-V-2.6-RKLLM Multimodal AI")
-st.markdown("Upload an image and ask multiple questions about it!")
+st.markdown("Upload an image and ask questions about it! **Check the console/terminal for detailed responses.**")
 
 # Initialize session state
 if 'model_manager' not in st.session_state:
@@ -122,7 +237,7 @@ with st.sidebar:
             if st.button("🚀 Start Inference Process"):
                 with st.spinner("Starting inference processes..."):
                     try:
-                        st.session_state.inference_manager = StreamlitInferenceManager()
+                        st.session_state.inference_manager = StreamlitMultiprocessManager()
                         st.session_state.inference_manager.start_processes()
                         st.success("✅ Inference processes started!")
                         st.rerun()
@@ -171,11 +286,11 @@ if models_exist:
                 # Predefined questions
                 st.subheader("Quick Questions")
                 predefined_questions = [
-                    "Describe this image in detail.",
-                    "What objects can you see in this image?",
-                    "What is happening in this image?",
-                    "What colors are prominent in this image?",
-                    "Are there any people in this image?"
+                    "Describe this image {{./temp_images/image.jpg}} in detail.",
+                    "What objects can you see in this image {{./temp_images/image.jpg}}?",
+                    "What is happening in this image {{./temp_images/image.jpg}}?",
+                    "What colors are prominent in this image {{./temp_images/image.jpg}}?",
+                    "Are there any people in this image {{./temp_images/image.jpg}}?"
                 ]
                 
                 cols = st.columns(2)
@@ -187,10 +302,11 @@ if models_exist:
                                 try:
                                     response = st.session_state.inference_manager.send_question(
                                         question, 
-                                        temp_image_path
+                                        str(temp_image_path)
                                     )
                                     st.session_state.questions_asked.append(question)
                                     st.session_state.responses.append(response)
+                                    st.info("✅ Question sent! Check the console/terminal for the detailed response.")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Error during inference: {str(e)}")
@@ -205,12 +321,14 @@ if models_exist:
                 if st.button("🚀 Ask Custom Question", disabled=not custom_question):
                     with st.spinner(f"Processing: {custom_question}"):
                         try:
+                            custom_question = question.replace(" {{./temp_images/image.jpg}}", "")
                             response = st.session_state.inference_manager.send_question(
                                 custom_question, 
-                                temp_image_path
+                                str(temp_image_path)
                             )
                             st.session_state.questions_asked.append(custom_question)
                             st.session_state.responses.append(response)
+                            st.info("✅ Question sent! Check the console/terminal for the detailed response.")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error during inference: {str(e)}")
@@ -219,12 +337,13 @@ if models_exist:
     
     # Display conversation history
     if st.session_state.questions_asked:
-        st.header("💬 Conversation History")
+        st.header("💬 Question History")
         
         for i, (question, response) in enumerate(zip(st.session_state.questions_asked, st.session_state.responses)):
-            with st.expander(f"Q{i+1}: {question}", expanded=(i == len(st.session_state.questions_asked) - 1)):
+            with st.expander(f"Q{i+1}: {question}", expanded=False):
                 st.write(f"**Question:** {question}")
-                st.write(f"**Response:** {response}")
+                st.write(f"**Status:** {response}")
+                st.info("💡 **Tip:** The detailed AI response is displayed in the console/terminal where you started Streamlit.")
         
         # Clear history button
         if st.button("🗑️ Clear History"):
@@ -237,4 +356,7 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("**Note:** You can ask multiple questions about the same image. Each question will be processed independently.")
+st.markdown("**Note:** ")  
+st.markdown("- You can ask multiple questions about the same image")
+st.markdown("- **Detailed AI responses are shown in the console/terminal** where you started Streamlit")
+st.markdown("- The Streamlit interface shows question status and history")
