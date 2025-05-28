@@ -164,18 +164,20 @@ class StreamlitSubprocessManager:
             print(f"Question: {question}")
             print(f"Image Path: {image_path}")
             
-            # Format with pre-question as requested
-            formatted_question = f"Check the image in {{{{{image_path}}}}}. {question}"
-            print(f"Formatted Question: {formatted_question}")
+            # Send first line: Check the image in {{...}}
+            image_check_line = f"Check the image in {{{{{image_path}}}}}"
+            print(f"First Line: {image_check_line}")
+            self.input_queue.put(image_check_line)
             
-            # Send the question
-            self.input_queue.put(formatted_question)
+            # Send second line: user question
+            print(f"Second Line: {question}")
+            self.input_queue.put(question)
             
             # Send three empty lines to signal end of input (as expected by original script)
             for _ in range(3):
                 self.input_queue.put("")
             
-            print("Question and empty lines sent")
+            print("Image check line, question, and empty lines sent")
             
             # Collect the response
             response_lines = []
