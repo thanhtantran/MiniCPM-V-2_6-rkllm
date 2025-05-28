@@ -167,17 +167,22 @@ class StreamlitSubprocessManager:
         except Exception as e:
             print(f"Error writing input: {e}")
     
-    def send_question(self, question_with_image):
+    def send_question(self, question, image_path):
         """Send a question to the inference process"""
         if not self.is_ready or not self.process:
             return "Error: Inference process not ready"
         
         try:
             print(f"=== SENDING QUESTION ===")
-            print(f"Question: {question_with_image}")
+            print(f"Question: {question}")
+            print(f"Image Path: {image_path}")
+            
+            # Format with pre-question as requested
+            formatted_question = f"Check the image in {{{{{image_path}}}}}. {question}"
+            print(f"Formatted Question: {formatted_question}")
             
             # Send the question
-            self.input_queue.put(question_with_image)
+            self.input_queue.put(formatted_question)
             
             # Send three empty lines to signal end of input (as expected by original script)
             for _ in range(3):
@@ -391,7 +396,8 @@ def main():
                 
                 with col1:
                     image = Image.open(uploaded_file)
-                    st.image(image, caption="Uploaded Image", use_column_width=True)
+                    # Fix: Replace use_column_width with use_container_width
+                    st.image(image, caption="Uploaded Image", use_container_width=True)
                 
                 with col2:
                     # Save the image
@@ -407,11 +413,9 @@ def main():
                         
                         if st.button("🔍 Analyze Image", type="primary"):
                             if question.strip():
-                                # Format the question with image placeholder
-                                formatted_question = f"{question} {{{{{image_path}}}}}"
-                                
                                 with st.spinner("Analyzing image..."):
-                                    response = st.session_state.inference_manager.send_question(formatted_question)
+                                    # Use the updated send_question method with separate parameters
+                                    response = st.session_state.inference_manager.send_question(question, image_path)
                                 
                                 st.subheader("🤖 Response:")
                                 st.write(response)
