@@ -85,7 +85,12 @@ class StreamlitMultiprocessManager:
         
         # Remove the image_placeholder as it's not necessary
         # Simply replace the {{path}} with empty string for the prompt
-        prompt = f"""
+        prompt = f"""<|im_start|>system
+You are a helpful assistant.<|im_end|>
+<|im_start|>user
+{full_input.replace(img_match.group(0), '')}<|im_end|>
+<|im_start|>assistant
+"""
         
         print(f"\n=== FORMATTED PROMPT ===")
         print(prompt)
