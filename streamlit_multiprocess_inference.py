@@ -103,4 +103,148 @@ def llm_process(load_ready_queue, embedding_queue, prompt_queue, response_queue,
     param.model_path = MODEL_PATH.encode()
     param.img_start = "<image>".encode()
     param.img_end = "</image>".encode()
-    param.img_content = "
+    param.img_content = "<unk>".encode()
+    
+    extend_param = RKLLMExtendParam()
+    extend_param.base_domain_id = 1
+    param.extend_param = extend_param
+    
+    model_size = os.path.getsize(MODEL_PATH)
+    print(f"Start loading language model (size: {model_size / 1024 / 1024:.2f} MB)")
+    start_time = time.time()
+    handle = init(param, result_callback)
+    end_time = time.time()
+    print(f"Language model loaded in {end_time - start_time:.2f} seconds")
+    
+    load_ready_queue.put("llm_ready")
+    
+    infer_param = RKLLMInferParam()
+    infer_param.mode = RKLLMInferMode.RKLLM_INFER_GENERATE.value
+    
+    while True:
+        prompt = prompt_queue.get()
+        if prompt == "STOP":
+            break
+            
+        image_embeddings = embedding_queue.get()
+        if isinstance(image_embeddings, str) and image_embeddings == "ERROR":
+            response_queue.put({"status": "error", "response": "Error processing image"})
+            continue
+            
+        rkllm_input = create_rkllm_input(RKLLMInputType.RKLLM_INPUT_MULTIMODAL,
+                                        prompt=prompt,
+                                        image_embed=image_embeddings)
+        
+        inference_start_time = time.time()
+        run(handle, rkllm_input, infer_param, None)
+    
+    destroy(handle)
+
+class StreamlitInferenceManager:
+    def __init__(self):
+        self.load_ready_queue = Queue()
+        self.embedding_queue = Queue()
+        self.img_path_queue = Queue()
+        self.prompt_queue = Queue()
+        self.response_queue = Queue()
+        self.start_event = Event()
+        
+        self.vision_process = None
+        self.lm_process = None
+        self.is_ready = False
+        
+    def start_processes(self):
+        """Start the vision and LLM processes"""
+        self.vision_process = Process(target=vision_encoder_process,
+                                    args=(self.load_ready_queue, self.embedding_queue, 
+                                         self.img_path_queue, self.start_event))
+        self.lm_process = Process(target=llm_process,
+                                args=(self.load_ready_queue, self.embedding_queue, 
+                                     self.prompt_queue, self.response_queue, self.start_event))
+        
+        self.vision_process.start()
+        self.lm_process.start()
+        
+        # Wait for models to load
+        ready_count = 0
+        while ready_count < 2:
+            status = self.load_ready_queue.get()
+            print(f"Received ready signal: {status}")
+            ready_count += 1
+        
+        print("All models loaded, ready for inference...")
+        self.start_event.set()
+        self.is_ready = True
+        
+    def send_question(self, question, image_path):
+        """Send a question with image for inference"""
+        if not self.is_ready:
+            return "Error: Inference processes not ready"
+            
+        # Format the prompt - always include image placeholder
+        image_placeholder = '<image_id>0</image_id><image>\n'
+        
+        # Check if question already contains image path placeholder
+        if '{{' in question and '}}' in question:
+            # Replace existing placeholder
+            question_with_image = re.sub(r'\{\{[^}]+\}\}', image_placeholder, question)
+        else:
+            # Add image placeholder at the beginning of the question
+            question_with_image = image_placeholder + question
+        
+        prompt = f"""<|im_start|>system
+You are a helpful assistant.<|im_end|>
+<|im_start|>user
+{question_with_image}<|im_end|>
+<|im_start|>assistant
+"""
+        
+        # Send image and prompt
+        self.img_path_queue.put(str(image_path))
+        self.prompt_queue.put(prompt)
+        
+        # Wait for response
+        try:
+            response_data = self.response_queue.get(timeout=60)  # 60 second timeout
+            if response_data["status"] == "success":
+                return response_data["response"]
+            else:
+                return f"Error: {response_data['response']}"
+        except:
+            return "Error: Inference timeout"
+            
+    def stop_processes(self):
+        """Stop the inference processes"""
+        if self.is_ready:
+            self.img_path_queue.put("STOP")
+            self.prompt_queue.put("STOP")
+            
+        if self.vision_process:
+            self.vision_process.join(timeout=5)
+            if self.vision_process.is_alive():
+                self.vision_process.terminate()
+                
+        if self.lm_process:
+            self.lm_process.join(timeout=5)
+            if self.lm_process.is_alive():
+                self.lm_process.terminate()
+                
+        self.is_ready = False
+
+if __name__ == "__main__":
+    # For testing
+    manager = StreamlitInferenceManager()
+    manager.start_processes()
+    
+    try:
+        while True:
+            question = input("Enter question (or 'quit' to exit): ")
+            if question.lower() == 'quit':
+                break
+            image_path = input("Enter image path: ")
+            response = manager.send_question(question, image_path)
+            print(f"Response: {response}")
+    except KeyboardInterrupt:
+        pass
+    finally:
+        manager.stop_processes()
