@@ -55,7 +55,7 @@ def vision_encoder_process(load_ready_queue, embedding_queue, img_path_queue, st
         else:
             embedding_queue.put("ERROR")
 
-# LLM process with response collection
+# LLM process with response collection and debugging output
 def llm_process(load_ready_queue, embedding_queue, prompt_queue, response_queue, start_event):
     MODEL_PATH = "model/qwen.rkllm"
     handle = None
@@ -82,12 +82,14 @@ def llm_process(load_ready_queue, embedding_queue, prompt_queue, response_queue,
             if inference_count == 0:
                 first_token_time = time.time()
                 print(f"Time to first token: {first_token_time - inference_start_time:.2f} seconds")
+                print("\n=== MODEL RESPONSE START ===")
             inference_count += 1
             token = result.contents.text.decode()
             current_response.append(token)
             print(token, end="", flush=True)
         elif state == LLMCallState.RKLLM_RUN_FINISH:
-            print("\n\n(finished)")
+            print("\n=== MODEL RESPONSE END ===")
+            print("\n(finished)")
             full_response = "".join(current_response)
             response_queue.put({"status": "success", "response": full_response})
             current_response = []
@@ -125,6 +127,14 @@ def llm_process(load_ready_queue, embedding_queue, prompt_queue, response_queue,
         prompt = prompt_queue.get()
         if prompt == "STOP":
             break
+            
+        # Print the received prompt for debugging
+        print("\n" + "="*60)
+        print("=== RECEIVED PROMPT FOR INFERENCE ===")
+        print("="*60)
+        print(prompt)
+        print("="*60)
+        print()
             
         image_embeddings = embedding_queue.get()
         if isinstance(image_embeddings, str) and image_embeddings == "ERROR":
@@ -180,6 +190,13 @@ class StreamlitInferenceManager:
         """Send a question with image for inference"""
         if not self.is_ready:
             return "Error: Inference processes not ready"
+        
+        # Print user input for debugging
+        print("\n" + "="*60)
+        print("=== USER INPUT ===")
+        print(f"Question: {question}")
+        print(f"Image Path: {image_path}")
+        print("="*60)
             
         # Format the prompt - always include image placeholder
         image_placeholder = '<image_id>0</image_id><image>\n'
@@ -199,6 +216,11 @@ You are a helpful assistant.<|im_end|>
 <|im_start|>assistant
 """
         
+        # Print formatted prompt for debugging
+        print("\n=== FORMATTED PROMPT ===")
+        print(prompt)
+        print("========================\n")
+        
         # Send image and prompt
         self.img_path_queue.put(str(image_path))
         self.prompt_queue.put(prompt)
@@ -207,11 +229,19 @@ You are a helpful assistant.<|im_end|>
         try:
             response_data = self.response_queue.get(timeout=60)  # 60 second timeout
             if response_data["status"] == "success":
+                print("\n" + "="*60)
+                print("=== FINAL RESPONSE ===")
+                print(response_data["response"])
+                print("="*60 + "\n")
                 return response_data["response"]
             else:
-                return f"Error: {response_data['response']}"
+                error_msg = f"Error: {response_data['response']}"
+                print(f"\n=== ERROR === \n{error_msg}\n")
+                return error_msg
         except:
-            return "Error: Inference timeout"
+            timeout_msg = "Error: Inference timeout"
+            print(f"\n=== TIMEOUT === \n{timeout_msg}\n")
+            return timeout_msg
             
     def stop_processes(self):
         """Stop the inference processes"""
