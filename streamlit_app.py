@@ -59,8 +59,11 @@ class StreamlitSubprocessManager:
             
             print("I/O threads started")
             
-            # Wait for the "ready for inference" message
+            # Wait for the process to be ready
             start_time = time.time()
+            ready_signals = 0
+            input_prompt_seen = False
+            
             while time.time() - start_time < 120:  # 2 minute timeout
                 # Check if process is still running
                 if self.process.poll() is not None:
@@ -72,10 +75,26 @@ class StreamlitSubprocessManager:
                 try:
                     output = self.output_queue.get(timeout=1)
                     print(f"STDOUT: {output}")
-                    if "ready for inference" in output.lower():
+                    
+                    # Check for ready signals
+                    if "vision_ready" in output or "llm_ready" in output:
+                        ready_signals += 1
+                        
+                    # Check for the interactive mode message
+                    if "All models loaded" in output:
+                        print("Models loaded message detected")
+                        
+                    # Check for the input prompt
+                    if "Enter your input" in output:
+                        input_prompt_seen = True
+                        print("Input prompt detected")
+                        
+                    # If we've seen both ready signals and the input prompt, we're ready
+                    if ready_signals >= 2 and input_prompt_seen:
                         self.is_ready = True
                         print("=== SUBPROCESS READY ===")
                         return True
+                        
                 except queue.Empty:
                     # Check for errors
                     self._print_errors()
@@ -139,8 +158,8 @@ class StreamlitSubprocessManager:
             while self.process and self.process.poll() is None:
                 try:
                     input_text = self.input_queue.get(timeout=1)
-                    if input_text:
-                        print(f"SENDING TO SUBPROCESS: {input_text}")
+                    if input_text is not None:  # Allow empty strings
+                        print(f"SENDING TO SUBPROCESS: '{input_text}'")
                         self.process.stdin.write(input_text + '\n')
                         self.process.stdin.flush()
                 except queue.Empty:
@@ -169,6 +188,7 @@ class StreamlitSubprocessManager:
             # Collect the response
             response_lines = []
             start_time = time.time()
+            collecting = False
             
             while time.time() - start_time < 60:  # 60 second timeout
                 # Check if process is still running
@@ -185,12 +205,16 @@ class StreamlitSubprocessManager:
                     if any(skip in output.lower() for skip in ['loading', 'input:', 'formatted prompt']):
                         continue
                     
-                    # Look for the actual response
-                    if output.strip() and not output.startswith('==='):
+                    # Start collecting after we see the first non-debug output
+                    if not collecting and output.strip() and not output.startswith('==='):
+                        collecting = True
+                    
+                    # Collect response lines
+                    if collecting:
                         response_lines.append(output)
-                        
-                    # Check if we got a complete response
-                    if "ready for inference" in output.lower():
+                    
+                    # Stop when we see the input prompt again
+                    if "Enter your input" in output:
                         break
                         
                 except queue.Empty:
