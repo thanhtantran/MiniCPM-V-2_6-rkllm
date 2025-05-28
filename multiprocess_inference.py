@@ -2,6 +2,7 @@ import faulthandler
 faulthandler.enable()
 import os
 import time
+import sys
 import signal
 from multiprocessing import Process, Queue, Event
 import cv2
@@ -173,13 +174,24 @@ Enter your input :
             empty_lines = 0
             
             while empty_lines < 3:
-                line = input()
-                if line.strip() == "":
-                    empty_lines += 1
-                else:
-                    empty_lines = 0
-                user_input.append(line)
+                try:
+                    # Use sys.stdin.readline() instead of input() for subprocess compatibility
+                    line = sys.stdin.readline()
+                    if not line:  # EOF
+                        break
+                    line = line.rstrip('\n\r')  # Remove newline characters
+                    
+                    if line.strip() == "":
+                        empty_lines += 1
+                    else:
+                        empty_lines = 0
+                    user_input.append(line)
+                except EOFError:
+                    break
             
+            if not user_input:  # No input received
+                break
+                
             # 解析输入
             full_input = "\n".join(user_input[:-3])  # 去掉最后3个空行
             import re
