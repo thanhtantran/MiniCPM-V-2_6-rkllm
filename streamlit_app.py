@@ -74,7 +74,7 @@ class StreamlitMultiprocessManager:
         print("==================")
         
         # Format the input like the original multiprocess_inference.py
-        full_input = f"{question} {{{{{image_path}}}}}"
+        full_input = f"{question}"
         
         # Parse input like in original code
         img_match = re.search(r'\{\{(.+?)\}\}', full_input)
@@ -83,14 +83,9 @@ class StreamlitMultiprocessManager:
             
         img_path = img_match.group(1)
         
-        # Replace image marker with <image> tag
-        image_placeholder = '<image_id>0</image_id><image>\n'
-        prompt = f"""<|im_start|>system
-You are a helpful assistant.<|im_end|>
-<|im_start|>user
-{full_input.replace(img_match.group(0), image_placeholder)}<|im_end|>
-<|im_start|>assistant
-"""
+        # Remove the image_placeholder as it's not necessary
+        # Simply replace the {{path}} with empty string for the prompt
+        prompt = f"""
         
         print(f"\n=== FORMATTED PROMPT ===")
         print(prompt)
@@ -278,34 +273,38 @@ if models_exist:
                 with open(temp_image_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 
-                st.success(f"✅ Image saved and ready for analysis")
+                # Display the actual path that will be used
+                relative_path = f"./temp_images/image.jpg"
+                st.success(f"✅ Image saved to: `{relative_path}`")
                 
                 # Questions section
                 st.header("❓ Ask Questions")
                 
-                # Predefined questions
+                # Predefined questions with correct path format
                 st.subheader("Quick Questions")
                 predefined_questions = [
-                    "Describe this image {{temp_image_path}} in detail.",
-                    "What objects can you see in this image {{temp_image_path}}?",
-                    "What is happening in this image {{temp_image_path}}?",
-                    "What colors are prominent in this image {{temp_image_path}}?",
-                    "Are there any people in this image {{temp_image_path}}?",
-                    "How is the waeather in this image {{temp_image_path}}?"
+                    f"Describe this image {{{{./temp_images/image.jpg}}}} in detail.",
+                    f"What objects can you see in this image {{{{./temp_images/image.jpg}}}}?",
+                    f"What is happening in this image {{{{./temp_images/image.jpg}}}}?",
+                    f"What colors are prominent in this image {{{{./temp_images/image.jpg}}}}?",
+                    f"Are there any people in this image {{{{./temp_images/image.jpg}}}}?",
+                    f"How is the weather in this image {{{{./temp_images/image.jpg}}}}?"
                 ]
                 
                 cols = st.columns(2)
                 for i, question in enumerate(predefined_questions):
                     col = cols[i % 2]
                     with col:
-                        if st.button(f"🤔 {question}", key=f"pred_q_{i}"):
-                            with st.spinner(f"Processing: {question}"):
+                        # Display question without the path for cleaner UI
+                        display_question = question.replace(f" {{{{./temp_images/image.jpg}}}}", "")
+                        if st.button(f"🤔 {display_question}", key=f"pred_q_{i}"):
+                            with st.spinner(f"Processing: {display_question}"):
                                 try:
                                     response = st.session_state.inference_manager.send_question(
                                         question, 
-                                        str(temp_image_path)
+                                        relative_path
                                     )
-                                    st.session_state.questions_asked.append(question)
+                                    st.session_state.questions_asked.append(display_question)
                                     st.session_state.responses.append(response)
                                     st.info("✅ Question sent! Check the console/terminal for the detailed response.")
                                     st.rerun()
@@ -322,10 +321,11 @@ if models_exist:
                 if st.button("🚀 Ask Custom Question", disabled=not custom_question):
                     with st.spinner(f"Processing: {custom_question}"):
                         try:
-                            # custom_question = question.replace(" {{./temp_images/image.jpg}}", "")
+                            # Add the image path placeholder to custom question
+                            full_custom_question = f"{custom_question} {{{{./temp_images/image.jpg}}}}"
                             response = st.session_state.inference_manager.send_question(
-                                custom_question, 
-                                "{{temp_image_path}}"
+                                full_custom_question, 
+                                relative_path
                             )
                             st.session_state.questions_asked.append(custom_question)
                             st.session_state.responses.append(response)
