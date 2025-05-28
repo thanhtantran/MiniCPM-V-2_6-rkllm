@@ -83,8 +83,14 @@ class StreamlitMultiprocessManager:
             
         img_path = img_match.group(1)
         
-        # Just send the question as-is, no complex formatting needed
-        prompt = full_input
+        # Use the SAME formatting as original multiprocess_inference.py
+        image_placeholder = '<image_id>0</image_id><image>\n'
+        prompt = f"""<|im_start|>system
+You are a helpful assistant.<|im_end|>
+<|im_start|>user
+{full_input.replace(img_match.group(0), image_placeholder)}<|im_end|>
+<|im_start|>assistant
+"""
         
         print(f"\n=== FORMATTED PROMPT ===")
         print(prompt)
