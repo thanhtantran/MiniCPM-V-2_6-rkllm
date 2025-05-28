@@ -185,7 +185,7 @@ class StreamlitSubprocessManager:
             collecting = False
             finished = False
             
-            while time.time() - start_time < 60:  # 60 second timeout
+            while time.time() - start_time < 120:  # Increased timeout to 120 seconds
                 # Check if process is still running
                 if self.process.poll() is not None:
                     print(f"Process terminated during inference with return code: {self.process.returncode}")
@@ -204,26 +204,30 @@ class StreamlitSubprocessManager:
                     if not collecting and output.strip() and not output.startswith('==='):
                         collecting = True
                     
-                    # Check for finished marker
+                    # Check for finished marker - this is the ONLY way to stop collecting
                     if "(finished)" in output:
                         finished = True
                         # Remove the (finished) marker from the output
                         output = output.replace("(finished)", "").strip()
                         if output:  # Only add if there's content after removing (finished)
                             response_lines.append(output)
+                        print("Found (finished) marker - stopping collection")
                         break
                     
-                    # Collect response lines
+                    # Collect response lines (including "Enter another question" prompts)
                     if collecting:
-                        response_lines.append(output)
-                    
-                    # Stop when we see the input prompt again (fallback)
-                    if "Enter your input" in output or "Enter another question" in output:
-                        break
+                        # Don't add "Enter your input" or "Enter another question" to response
+                        if not ("Enter your input" in output or "Enter another question" in output):
+                            response_lines.append(output)
+                        else:
+                            print(f"Skipping prompt line: {output}")
                         
                 except queue.Empty:
                     self._print_errors()
                     continue
+            
+            if not finished:
+                print("Warning: Response collection ended without finding (finished) marker")
             
             if response_lines:
                 # Convert response to Markdown format
