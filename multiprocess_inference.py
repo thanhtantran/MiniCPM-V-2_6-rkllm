@@ -170,6 +170,7 @@ def main():
             print("""
 Enter your input :
 """)
+            sys.stdout.flush()  # Ensure the prompt is immediately visible
             user_input = []
             empty_lines = 0
             
@@ -177,8 +178,9 @@ Enter your input :
                 try:
                     # Use sys.stdin.readline() instead of input() for subprocess compatibility
                     line = sys.stdin.readline()
-                    if not line:  # EOF
-                        break
+                    if not line:  # EOF - but don't break immediately, wait a bit
+                        time.sleep(0.1)
+                        continue
                     line = line.rstrip('\n\r')  # Remove newline characters
                     
                     if line.strip() == "":
@@ -187,10 +189,11 @@ Enter your input :
                         empty_lines = 0
                     user_input.append(line)
                 except EOFError:
-                    break
+                    time.sleep(0.1)
+                    continue
             
-            if not user_input:  # No input received
-                break
+            if not user_input or all(line.strip() == "" for line in user_input):  # No meaningful input received
+                continue  # Don't break, just continue waiting
                 
             # 解析输入
             full_input = "\n".join(user_input[:-3])  # 去掉最后3个空行
