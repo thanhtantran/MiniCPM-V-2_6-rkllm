@@ -66,13 +66,11 @@ class InferenceManager:
         self.process = None
         self.output_queue = queue.Queue()
         self.is_ready = False
+        self.status_messages = []
         
-    def start_inference_process(self, progress_callback=None):
+    def start_inference_process(self):
         """Start the multiprocess_inference.py subprocess"""
         try:
-            if progress_callback:
-                progress_callback("Starting inference process...")
-            
             # Start the subprocess
             self.process = subprocess.Popen(
                 [sys.executable, "multiprocess_inference.py"],
@@ -87,19 +85,17 @@ class InferenceManager:
             # Start output monitoring thread
             self.output_thread = threading.Thread(
                 target=self._monitor_output,
-                args=(progress_callback,),
                 daemon=True
             )
             self.output_thread.start()
             
             return True
         except Exception as e:
-            if progress_callback:
-                progress_callback(f"Failed to start process: {str(e)}")
+            self.status_messages.append(f"Failed to start process: {str(e)}")
             return False
     
-    def _monitor_output(self, progress_callback=None):
-        """Monitor subprocess output"""
+    def _monitor_output(self):
+        """Monitor subprocess output - NO DIRECT UI UPDATES"""
         try:
             while self.process and self.process.poll() is None:
                 line = self.process.stdout.readline()
@@ -107,17 +103,19 @@ class InferenceManager:
                     line = line.strip()
                     self.output_queue.put(line)
                     
-                    if progress_callback:
-                        progress_callback(line)
+                    # Store messages instead of updating UI directly
+                    self.status_messages.append(line)
                     
                     # Check if models are loaded and ready
                     if "All models loaded, starting interactive mode..." in line:
                         self.is_ready = True
-                        if progress_callback:
-                            progress_callback("✅ Models loaded! Ready for inference.")
+                        self.status_messages.append("✅ Models loaded! Ready for inference.")
         except Exception as e:
-            if progress_callback:
-                progress_callback(f"Output monitoring error: {str(e)}")
+            self.status_messages.append(f"Output monitoring error: {str(e)}")
+    
+    def get_latest_status(self):
+        """Get the latest status messages"""
+        return self.status_messages[-10:] if self.status_messages else []
     
     def send_question(self, question, image_path):
         """Send question to the inference process"""
@@ -193,6 +191,7 @@ class InferenceManager:
                 self.process.kill()
             self.process = None
             self.is_ready = False
+            self.status_messages.append("Process stopped")
 
 # Initialize managers
 if 'model_manager' not in st.session_state:
@@ -252,16 +251,13 @@ if models_exist:
     with col1:
         if not st.session_state.inference_manager.is_ready:
             if st.button("▶️ Start Inference Process", type="primary"):
-                progress_placeholder = st.empty()
-                
-                def update_progress(message):
-                    progress_placeholder.text(message)
-                
                 with st.spinner("Starting inference process..."):
-                    success = st.session_state.inference_manager.start_inference_process(update_progress)
+                    success = st.session_state.inference_manager.start_inference_process()
                 
                 if not success:
                     st.error("Failed to start inference process")
+                else:
+                    st.info("Process started. Please wait for models to load...")
         else:
             st.success("✅ Inference process is ready!")
     
@@ -272,7 +268,19 @@ if models_exist:
                 st.success("Process stopped")
                 st.rerun()
     
-    # Image upload and inference - MOVED OUTSIDE the is_ready check
+    # Show process status
+    if st.session_state.inference_manager.process and not st.session_state.inference_manager.is_ready:
+        st.subheader("📊 Process Status")
+        status_messages = st.session_state.inference_manager.get_latest_status()
+        if status_messages:
+            for msg in status_messages[-5:]:  # Show last 5 messages
+                st.text(msg)
+        
+        # Auto-refresh every 2 seconds while loading
+        time.sleep(2)
+        st.rerun()
+    
+    # Image upload and inference - Always visible but conditionally enabled
     st.header("🖼️ Image Upload & Inference")
     
     # Show status message if process not ready
