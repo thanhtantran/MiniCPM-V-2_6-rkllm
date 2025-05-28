@@ -226,37 +226,38 @@ class StreamlitSubprocessManager:
                     continue
             
             if response_lines:
-                # Convert response to HTML format
-                html_response = self._convert_to_html('\n'.join(response_lines))
-                return html_response
+                # Convert response to Markdown format
+                markdown_response = self._convert_to_markdown('\n'.join(response_lines))
+                return markdown_response
             else:
-                return "<p>Error: No response received</p>"
+                return "**Error:** No response received"
                 
         except Exception as e:
             print(f"Exception during inference: {e}")
-            return f"<p>Error during inference: {e}</p>"
+            return f"**Error during inference:** {e}"
     
-    def _convert_to_html(self, text):
-        """Convert plain text response to HTML format"""
-        import html
-        
-        # Escape HTML characters
-        escaped_text = html.escape(text)
-        
-        # Convert line breaks to HTML
-        lines = escaped_text.split('\n')
-        html_lines = []
+    def _convert_to_markdown(self, text):
+        """Convert plain text response to Markdown format"""
+        lines = text.split('\n')
+        markdown_lines = []
         
         for line in lines:
             line = line.strip()
             if line:
-                # Wrap non-empty lines in paragraph tags
-                html_lines.append(f"<p>{line}</p>")
+                # Keep the line as is for markdown
+                markdown_lines.append(line)
             else:
-                # Add line break for empty lines
-                html_lines.append("<br>")
+                # Add empty line for spacing
+                markdown_lines.append("")
         
-        return '\n'.join(html_lines)
+        # Join lines and ensure proper markdown formatting
+        result = '\n'.join(markdown_lines)
+        
+        # Clean up multiple consecutive empty lines
+        import re
+        result = re.sub(r'\n\s*\n\s*\n', '\n\n', result)
+        
+        return result.strip()
 
     def stop_process(self):
         """Stop the inference process"""
