@@ -286,11 +286,12 @@ if models_exist:
                 # Predefined questions
                 st.subheader("Quick Questions")
                 predefined_questions = [
-                    "Describe this image {{./temp_images/image.jpg}} in detail.",
-                    "What objects can you see in this image {{./temp_images/image.jpg}}?",
-                    "What is happening in this image {{./temp_images/image.jpg}}?",
-                    "What colors are prominent in this image {{./temp_images/image.jpg}}?",
-                    "Are there any people in this image {{./temp_images/image.jpg}}?"
+                    "Describe this image {{temp_image_path}} in detail.",
+                    "What objects can you see in this image {{temp_image_path}}?",
+                    "What is happening in this image {{temp_image_path}}?",
+                    "What colors are prominent in this image {{temp_image_path}}?",
+                    "Are there any people in this image {{temp_image_path}}?",
+                    "How is the waeather in this image {{temp_image_path}}?"
                 ]
                 
                 cols = st.columns(2)
@@ -321,10 +322,10 @@ if models_exist:
                 if st.button("🚀 Ask Custom Question", disabled=not custom_question):
                     with st.spinner(f"Processing: {custom_question}"):
                         try:
-                            custom_question = question.replace(" {{./temp_images/image.jpg}}", "")
+                            # custom_question = question.replace(" {{./temp_images/image.jpg}}", "")
                             response = st.session_state.inference_manager.send_question(
                                 custom_question, 
-                                str(temp_image_path)
+                                "{{temp_image_path}}"
                             )
                             st.session_state.questions_asked.append(custom_question)
                             st.session_state.responses.append(response)
