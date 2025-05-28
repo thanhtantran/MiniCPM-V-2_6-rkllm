@@ -180,12 +180,11 @@ class StreamlitSubprocessManager:
             print("Image check line, question, and empty lines sent")
             
             # Collect the response
-            response_lines = []
+            all_lines = []
             start_time = time.time()
-            collecting = False
             finished = False
             
-            while time.time() - start_time < 120:  # Increased timeout to 120 seconds
+            while time.time() - start_time < 120:  # 120 second timeout
                 # Check if process is still running
                 if self.process.poll() is not None:
                     print(f"Process terminated during inference with return code: {self.process.returncode}")
@@ -194,51 +193,88 @@ class StreamlitSubprocessManager:
                 
                 try:
                     output = self.output_queue.get(timeout=1)
-                    print(f"RESPONSE: {output}")
+                    print(f"RAW OUTPUT: {repr(output)}")
                     
-                    # Skip debug/status messages
-                    if any(skip in output.lower() for skip in ['loading', 'input:', 'formatted prompt']):
-                        continue
+                    # Collect all lines until we find the performance table end
+                    all_lines.append(output)
                     
-                    # Start collecting after we see the first non-debug output
-                    if not collecting and output.strip() and not output.startswith('==='):
-                        collecting = True
-                    
-                    # Check for finished marker - this is the ONLY way to stop collecting
-                    if "(finished)" in output:
+                    # Check if we've reached the end of the performance table
+                    if "--------------------------------------------------------------------------------------" in output and len(all_lines) > 5:
+                        # We've collected the complete response including the table
                         finished = True
-                        # Remove the (finished) marker from the output
-                        output = output.replace("(finished)", "").strip()
-                        if output:  # Only add if there's content after removing (finished)
-                            response_lines.append(output)
-                        print("Found (finished) marker - stopping collection")
+                        print("Found end of performance table - response complete")
                         break
-                    
-                    # Collect response lines (including "Enter another question" prompts)
-                    if collecting:
-                        # Don't add "Enter your input" or "Enter another question" to response
-                        if not ("Enter your input" in output or "Enter another question" in output):
-                            response_lines.append(output)
-                        else:
-                            print(f"Skipping prompt line: {output}")
                         
                 except queue.Empty:
                     self._print_errors()
                     continue
             
             if not finished:
-                print("Warning: Response collection ended without finding (finished) marker")
+                print("Warning: Response collection ended without finding complete response")
             
-            if response_lines:
-                # Convert response to Markdown format
-                markdown_response = self._convert_to_markdown('\n'.join(response_lines))
-                return markdown_response
+            if all_lines:
+                # Parse the response to extract only the answer
+                answer_lines = self._extract_answer_from_response(all_lines)
+                if answer_lines:
+                    # Convert response to Markdown format
+                    markdown_response = self._convert_to_markdown('\n'.join(answer_lines))
+                    return markdown_response
+                else:
+                    return "**Error:** Could not extract answer from response"
             else:
                 return "**Error:** No response received"
                 
         except Exception as e:
             print(f"Exception during inference: {e}")
             return f"**Error during inference:** {e}"
+    
+    def _extract_answer_from_response(self, all_lines):
+        """Extract only the answer portion from the complete subprocess response"""
+        answer_lines = []
+        skip_initial_status = True
+        found_answer_start = False
+        
+        for line in all_lines:
+            line = line.strip()
+            
+            # Skip empty lines at the beginning
+            if not line and not found_answer_start:
+                continue
+            
+            # Skip the initial status lines (for first response)
+            if skip_initial_status:
+                if any(status in line for status in [
+                    "Start vision inference",
+                    "Vision encoder inference time",
+                    "Time to first token"
+                ]):
+                    continue
+                else:
+                    skip_initial_status = False
+            
+            # Stop when we hit the (finished) marker
+            if "(finished)" in line:
+                print("Found (finished) marker - stopping answer collection")
+                break
+            
+            # Stop when we hit the performance table separator
+            if "--------------------------------------------------------------------------------------" in line:
+                print("Found performance table - stopping answer collection")
+                break
+            
+            # Skip debug/status messages
+            if any(skip in line.lower() for skip in [
+                'loading', 'input:', 'formatted prompt', 'enter your', 'enter another'
+            ]):
+                continue
+            
+            # This is part of the answer
+            if line:
+                found_answer_start = True
+                answer_lines.append(line)
+        
+        print(f"Extracted answer lines: {answer_lines}")
+        return answer_lines
     
     def _convert_to_markdown(self, text):
         """Convert plain text response to Markdown format"""
