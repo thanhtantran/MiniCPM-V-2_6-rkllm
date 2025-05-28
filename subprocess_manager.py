@@ -179,10 +179,11 @@ class StreamlitSubprocessManager:
             
             print("Image check line, question, and empty lines sent")
             
-            # Collect the response
-            all_lines = []
+            # Collect ALL raw output until the true end marker
+            all_raw_lines = []
             start_time = time.time()
-            finished = False
+            empty_line_count = 0
+            found_enter_input = False
             
             while time.time() - start_time < 120:  # 120 second timeout
                 # Check if process is still running
@@ -195,86 +196,51 @@ class StreamlitSubprocessManager:
                     output = self.output_queue.get(timeout=1)
                     print(f"RAW OUTPUT: {repr(output)}")
                     
-                    # Collect all lines until we find the performance table end
-                    all_lines.append(output)
+                    # Add to raw collection
+                    all_raw_lines.append(output)
                     
-                    # Check if we've reached the end of the performance table
-                    if "--------------------------------------------------------------------------------------" in output and len(all_lines) > 5:
-                        # We've collected the complete response including the table
-                        finished = True
-                        print("Found end of performance table - response complete")
-                        break
+                    # Check for the true end marker: "Enter your input :" followed by 2 empty lines
+                    if "Enter your input" in output:
+                        found_enter_input = True
+                        empty_line_count = 0
+                        print("Found 'Enter your input' - counting empty lines")
+                    elif found_enter_input:
+                        if output.strip() == "":
+                            empty_line_count += 1
+                            print(f"Empty line count: {empty_line_count}")
+                            if empty_line_count >= 2:
+                                print("Found end marker: 'Enter your input' + 2 empty lines")
+                                break
+                        else:
+                            # Reset if we get non-empty line after "Enter your input"
+                            found_enter_input = False
+                            empty_line_count = 0
                         
                 except queue.Empty:
                     self._print_errors()
                     continue
             
-            if not finished:
-                print("Warning: Response collection ended without finding complete response")
-            
-            if all_lines:
-                # Parse the response to extract only the answer
-                answer_lines = self._extract_answer_from_response(all_lines)
-                if answer_lines:
-                    # Convert response to Markdown format
-                    markdown_response = self._convert_to_markdown('\n'.join(answer_lines))
+            if all_raw_lines:
+                # Remove the final "Enter your input" and empty lines from display
+                response_lines = []
+                for line in all_raw_lines:
+                    if "Enter your input" in line:
+                        break
+                    response_lines.append(line)
+                
+                if response_lines:
+                    # Convert complete raw response to Markdown format
+                    raw_response = '\n'.join(response_lines)
+                    markdown_response = self._convert_to_markdown(raw_response)
                     return markdown_response
                 else:
-                    return "**Error:** Could not extract answer from response"
+                    return "**Error:** No response content found"
             else:
                 return "**Error:** No response received"
                 
         except Exception as e:
             print(f"Exception during inference: {e}")
             return f"**Error during inference:** {e}"
-    
-    def _extract_answer_from_response(self, all_lines):
-        """Extract only the answer portion from the complete subprocess response"""
-        answer_lines = []
-        skip_initial_status = True
-        found_answer_start = False
-        
-        for line in all_lines:
-            line = line.strip()
-            
-            # Skip empty lines at the beginning
-            if not line and not found_answer_start:
-                continue
-            
-            # Skip the initial status lines (for first response)
-            if skip_initial_status:
-                if any(status in line for status in [
-                    "Start vision inference",
-                    "Vision encoder inference time",
-                    "Time to first token"
-                ]):
-                    continue
-                else:
-                    skip_initial_status = False
-            
-            # Stop when we hit the (finished) marker
-            if "(finished)" in line:
-                print("Found (finished) marker - stopping answer collection")
-                break
-            
-            # Stop when we hit the performance table separator
-            if "--------------------------------------------------------------------------------------" in line:
-                print("Found performance table - stopping answer collection")
-                break
-            
-            # Skip debug/status messages
-            if any(skip in line.lower() for skip in [
-                'loading', 'input:', 'formatted prompt', 'enter your', 'enter another'
-            ]):
-                continue
-            
-            # This is part of the answer
-            if line:
-                found_answer_start = True
-                answer_lines.append(line)
-        
-        print(f"Extracted answer lines: {answer_lines}")
-        return answer_lines
     
     def _convert_to_markdown(self, text):
         """Convert plain text response to Markdown format"""
