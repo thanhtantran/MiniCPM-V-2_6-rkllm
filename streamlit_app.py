@@ -56,7 +56,7 @@ def main():
                 if not st.session_state.inference_manager.is_ready:
                     if st.button("🔄 Start Inference Process"):
                         with st.spinner("Starting inference process..."):
-                            success = st.session_state.inference_manager.start_inference_process()
+                            success = st.session_state.inference_manager.start_process()
                             
                         if success:
                             st.success("✅ Inference process started!")
