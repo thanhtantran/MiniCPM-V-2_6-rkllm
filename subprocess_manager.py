@@ -4,6 +4,7 @@ import subprocess
 import threading
 import queue
 import streamlit as st
+import sys
 
 class StreamlitSubprocessManager:
     def __init__(self):
@@ -40,7 +41,7 @@ class StreamlitSubprocessManager:
             
             # Start I/O threads
             self.output_thread = threading.Thread(target=self._read_output, daemon=True)
-            self.error_thread = threading.Thread(target=self._read_errors, daemon=True)
+            self.error_thread = threading.Thread(target=self._read_error, daemon=True)
             self.input_thread = threading.Thread(target=self._write_input, daemon=True)
             
             self.output_thread.start()
@@ -55,6 +56,38 @@ class StreamlitSubprocessManager:
         except Exception as e:
             print(f"Error starting process: {e}")
             self.process = None
+
+    def _wait_for_ready(self):
+        """Wait for the subprocess to be ready for inference"""
+        print("Waiting for subprocess to be ready...")
+        start_time = time.time()
+        timeout = 60  # 60 seconds timeout
+        
+        while time.time() - start_time < timeout:
+            # Check if process is still running
+            if self.process.poll() is not None:
+                print(f"Process terminated during startup with return code: {self.process.returncode}")
+                self._print_all_errors()
+                return False
+            
+            # Check for ready signals in output
+            try:
+                output = self.output_queue.get(timeout=1)
+                print(f"STARTUP OUTPUT: {output}")
+                
+                # Look for indicators that the process is ready
+                if "Enter your input" in output or "ready" in output.lower():
+                    print("Subprocess is ready!")
+                    self.is_ready = True
+                    return True
+                    
+            except queue.Empty:
+                self._print_errors()
+                continue
+        
+        print("Timeout waiting for subprocess to be ready")
+        self._print_all_errors()
+        return False
     
     def _read_output(self):
         """Read output from the subprocess"""
