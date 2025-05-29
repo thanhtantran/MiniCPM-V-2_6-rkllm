@@ -42,8 +42,20 @@ class ModelManager:
             snapshot_download(
                 repo_id=HF_REPO,
                 local_dir=self.model_dir,
-                allow_patterns=REQUIRED_FILES
+                allow_patterns=[f"model/{file}" for file in REQUIRED_FILES]
             )
+            
+            # Move files from model/model/ to model/ (since snapshot_download preserves repo structure)
+            import shutil
+            model_subfolder = self.model_dir / "model"
+            if model_subfolder.exists():
+                for file in REQUIRED_FILES:
+                    src = model_subfolder / file
+                    dst = self.model_dir / file
+                    if src.exists():
+                        shutil.move(str(src), str(dst))
+                # Remove the empty model subfolder
+                model_subfolder.rmdir()            
             
             if progress_callback:
                 progress_callback("Download completed!")

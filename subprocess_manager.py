@@ -212,20 +212,58 @@ class StreamlitSubprocessManager:
             return f"**Error during inference:** {e}"
     
     def _convert_to_markdown(self, text):
-        """Convert plain text response to Markdown format"""
+        """Convert plain text response to Markdown format with proper formatting"""
         lines = text.split('\n')
         markdown_lines = []
+        dash_line_count = 0
         
         for line in lines:
             line = line.strip()
+            
+            # Skip the "Start vision inference..." line
+            if "Start vision inference" in line:
+                continue
+                
             if line:
-                # Keep the line as is for markdown
-                markdown_lines.append(line)
+            # Check if this is a line of dashes (performance table border)
+                if line.startswith('--------------------------------------------------------------------------------------'):
+                    dash_line_count += 1
+                    if dash_line_count == 1:
+                        # First dash line - start code block
+                        markdown_lines.append('```')
+                        markdown_lines.append(line)
+                    elif dash_line_count == 2:
+                        # Second dash line - just add it
+                        markdown_lines.append(line)
+                    elif dash_line_count == 3:
+                        # Third dash line - add it and end code block
+                        markdown_lines.append(line)
+                        markdown_lines.append('```')
+                    else:
+                        # Any additional dash lines
+                        markdown_lines.append(line)
+                # Handle timing information - separate lines
+                elif "Vision encoder inference time:" in line: 
+                    markdown_lines.append("**Vision Encoder Timing:**") 
+                    markdown_lines.append(line) 
+                    markdown_lines.append("") 
+                elif "Time to first token:" in line: 
+                    markdown_lines.append("**Generation Timing:**") 
+                    markdown_lines.append(line) 
+                    markdown_lines.append("") 
+                # Handle the actual response content 
+                elif line.startswith('"') and line.endswith('"'): 
+                    markdown_lines.append("**Response:**") 
+                    markdown_lines.append(line.strip('"')) 
+                    markdown_lines.append("")
+                else:
+                    # Regular content
+                    markdown_lines.append(line)
             else:
-                # Add empty line for spacing
+                # Add empty line for spacing (but not inside performance table)
                 markdown_lines.append("")
         
-        # Join lines and ensure proper markdown formatting
+        # Join lines and clean up formatting
         result = '\n'.join(markdown_lines)
         
         # Clean up multiple consecutive empty lines
