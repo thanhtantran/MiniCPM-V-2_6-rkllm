@@ -61,7 +61,7 @@ class StreamlitSubprocessManager:
         """Wait for the subprocess to be ready for inference"""
         print("Waiting for subprocess to be ready...")
         start_time = time.time()
-        timeout = 60  # 60 seconds timeout
+        timeout = 180  # 180 seconds timeout
         
         while time.time() - start_time < timeout:
             # Check if process is still running
@@ -76,16 +76,16 @@ class StreamlitSubprocessManager:
                 print(f"STARTUP OUTPUT: {output}")
                 
                 # Look for indicators that the process is ready
-                if "Enter your input" in output or "ready" in output.lower():
+                if "Enter your input :" in output:
                     print("Subprocess is ready!")
                     self.is_ready = True
                     return True
                     
             except queue.Empty:
-                self._print_errors()
+                # self._print_errors()
                 continue
         
-        print("Timeout waiting for subprocess to be ready")
+        print("Timeout waiting 3 minutes for subprocess to be ready")
         self._print_all_errors()
         return False
     
@@ -172,11 +172,9 @@ class StreamlitSubprocessManager:
             
             print("Image check line, question, and empty lines sent")
             
-            # Collect ALL raw output with longer timeout and better detection
+            # Collect ALL raw output until 'Enter your input :' marker
             all_raw_lines = []
             start_time = time.time()
-            found_finished = False
-            found_table_end = False
             
             while time.time() - start_time < 180:  # 3 minute timeout
                 # Check if process is still running
@@ -186,51 +184,26 @@ class StreamlitSubprocessManager:
                     break
                 
                 try:
-                    output = self.output_queue.get(timeout=2)  # Longer timeout
+                    output = self.output_queue.get(timeout=2)
                     print(f"RAW OUTPUT: {repr(output)}")
                     
-                    # Add to raw collection
-                    all_raw_lines.append(output)
-                    
-                    # Look for (finished) marker
-                    if "(finished)" in output:
-                        found_finished = True
-                        print("Found (finished) marker")
-                    
-                    # Look for end of performance table
-                    if found_finished and "--------------------------------------------------------------------------------------" in output:
-                        found_table_end = True
-                        print("Found end of performance table")
-                    
-                    # Look for next input prompt after table
-                    if found_table_end and "Enter your input" in output:
-                        print("Found next input prompt - response complete")
+                    # Check for end marker 'Enter your input :'
+                    if "Enter your input :" in output:
+                        print("Found 'Enter your input :' marker - response complete")
                         break
+                    
+                    # Add to raw collection (exclude the end marker)
+                    all_raw_lines.append(output)
                         
                 except queue.Empty:
-                    # If we found finished but no more output, wait a bit more
-                    if found_finished:
-                        print("Waiting for performance table...")
-                        time.sleep(1)
-                        continue
                     self._print_errors()
                     continue
             
             if all_raw_lines:
-                # Remove the final "Enter your input" from display
-                response_lines = []
-                for line in all_raw_lines:
-                    if "Enter your input" in line:
-                        break
-                    response_lines.append(line)
-                
-                if response_lines:
-                    # Convert complete raw response to Markdown format
-                    raw_response = '\n'.join(response_lines)
-                    markdown_response = self._convert_to_markdown(raw_response)
-                    return markdown_response
-                else:
-                    return "**Error:** No response content found"
+                # Convert complete raw response to Markdown format
+                raw_response = '\n'.join(all_raw_lines)
+                markdown_response = self._convert_to_markdown(raw_response)
+                return markdown_response
             else:
                 return "**Error:** No response received"
                 
