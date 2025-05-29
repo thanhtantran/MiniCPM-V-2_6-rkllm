@@ -2,7 +2,6 @@ import faulthandler
 faulthandler.enable()
 import os
 import time
-import sys
 import signal
 from multiprocessing import Process, Queue, Event
 import cv2
@@ -170,31 +169,17 @@ def main():
             print("""
 Enter your input :
 """)
-            sys.stdout.flush()  # Ensure the prompt is immediately visible
             user_input = []
             empty_lines = 0
             
             while empty_lines < 3:
-                try:
-                    # Use sys.stdin.readline() instead of input() for subprocess compatibility
-                    line = sys.stdin.readline()
-                    if not line:  # EOF - but don't break immediately, wait a bit
-                        time.sleep(0.1)
-                        continue
-                    line = line.rstrip('\n\r')  # Remove newline characters
-                    
-                    if line.strip() == "":
-                        empty_lines += 1
-                    else:
-                        empty_lines = 0
-                    user_input.append(line)
-                except EOFError:
-                    time.sleep(0.1)
-                    continue
+                line = input()
+                if line.strip() == "":
+                    empty_lines += 1
+                else:
+                    empty_lines = 0
+                user_input.append(line)
             
-            if not user_input or all(line.strip() == "" for line in user_input):  # No meaningful input received
-                continue  # Don't break, just continue waiting
-                
             # 解析输入
             full_input = "\n".join(user_input[:-3])  # 去掉最后3个空行
             import re

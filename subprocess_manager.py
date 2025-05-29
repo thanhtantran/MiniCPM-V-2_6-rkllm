@@ -13,31 +13,34 @@ class StreamlitSubprocessManager:
         self.error_queue = queue.Queue()
         self.input_queue = queue.Queue()
         
-    def start_inference_process(self):
-        """Start the multiprocess_inference.py as a subprocess"""
+    def start_process(self):
+        """Start the inference subprocess"""
+        if self.process is not None:
+            print("Process already running")
+            return
+        
         try:
             print("=== STARTING SUBPROCESS ===")
             print(f"Working directory: {os.getcwd()}")
-            print(f"Python executable: {os.sys.executable}")
-            print("Command: python multiprocess_inference.py")
+            print(f"Python executable: {sys.executable}")
+            print(f"Command: python multiprocess_inference.py")
             
-            # Start the subprocess
+            # Start subprocess with unbuffered output
             self.process = subprocess.Popen(
-                ['python', 'multiprocess_inference.py'],
+                [sys.executable, "-u", "multiprocess_inference.py"],  # -u for unbuffered
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1,
-                universal_newlines=True,
-                cwd=os.getcwd()  # Explicitly set working directory
+                bufsize=0,  # Unbuffered
+                universal_newlines=True
             )
             
             print(f"Process started with PID: {self.process.pid}")
             
-            # Start threads to handle I/O
+            # Start I/O threads
             self.output_thread = threading.Thread(target=self._read_output, daemon=True)
-            self.error_thread = threading.Thread(target=self._read_error, daemon=True)
+            self.error_thread = threading.Thread(target=self._read_errors, daemon=True)
             self.input_thread = threading.Thread(target=self._write_input, daemon=True)
             
             self.output_thread.start()
@@ -46,55 +49,12 @@ class StreamlitSubprocessManager:
             
             print("I/O threads started")
             
-            # Wait for the process to be ready
-            start_time = time.time()
-            ready_signals = 0
-            input_prompt_seen = False
-            
-            while time.time() - start_time < 120:  # 2 minute timeout
-                # Check if process is still running
-                if self.process.poll() is not None:
-                    print(f"Process terminated early with return code: {self.process.returncode}")
-                    # Print any error output
-                    self._print_all_errors()
-                    return False
-                
-                try:
-                    output = self.output_queue.get(timeout=1)
-                    print(f"STDOUT: {output}")
-                    
-                    # Check for ready signals
-                    if "vision_ready" in output or "llm_ready" in output:
-                        ready_signals += 1
-                        
-                    # Check for the interactive mode message
-                    if "All models loaded" in output:
-                        print("Models loaded message detected")
-                        
-                    # Check for the input prompt
-                    if "Enter your input" in output:
-                        input_prompt_seen = True
-                        print("Input prompt detected")
-                        
-                    # If we've seen both ready signals and the input prompt, we're ready
-                    if ready_signals >= 2 and input_prompt_seen:
-                        self.is_ready = True
-                        print("=== SUBPROCESS READY ===")
-                        return True
-                        
-                except queue.Empty:
-                    # Check for errors
-                    self._print_errors()
-                    continue
-            
-            print("Timeout waiting for subprocess to be ready")
-            self._print_all_errors()
-            return False
+            # Wait for ready signals
+            self._wait_for_ready()
             
         except Exception as e:
-            print(f"Exception starting subprocess: {e}")
-            st.error(f"Failed to start inference process: {e}")
-            return False
+            print(f"Error starting process: {e}")
+            self.process = None
     
     def _read_output(self):
         """Read output from the subprocess"""
@@ -173,19 +133,19 @@ class StreamlitSubprocessManager:
             print(f"Second Line: {question}")
             self.input_queue.put(question)
             
-            # Send three empty lines to signal end of input (as expected by original script)
+            # Send three empty lines to signal end of input
             for _ in range(3):
                 self.input_queue.put("")
             
             print("Image check line, question, and empty lines sent")
             
-            # Collect ALL raw output until the true end marker
+            # Collect ALL raw output with longer timeout and better detection
             all_raw_lines = []
             start_time = time.time()
-            empty_line_count = 0
-            found_enter_input = False
+            found_finished = False
+            found_table_end = False
             
-            while time.time() - start_time < 120:  # 120 second timeout
+            while time.time() - start_time < 180:  # 3 minute timeout
                 # Check if process is still running
                 if self.process.poll() is not None:
                     print(f"Process terminated during inference with return code: {self.process.returncode}")
@@ -193,35 +153,38 @@ class StreamlitSubprocessManager:
                     break
                 
                 try:
-                    output = self.output_queue.get(timeout=1)
+                    output = self.output_queue.get(timeout=2)  # Longer timeout
                     print(f"RAW OUTPUT: {repr(output)}")
                     
                     # Add to raw collection
                     all_raw_lines.append(output)
                     
-                    # Check for the true end marker: "Enter your input :" followed by 2 empty lines
-                    if "Enter your input" in output:
-                        found_enter_input = True
-                        empty_line_count = 0
-                        print("Found 'Enter your input' - counting empty lines")
-                    elif found_enter_input:
-                        if output.strip() == "":
-                            empty_line_count += 1
-                            print(f"Empty line count: {empty_line_count}")
-                            if empty_line_count >= 2:
-                                print("Found end marker: 'Enter your input' + 2 empty lines")
-                                break
-                        else:
-                            # Reset if we get non-empty line after "Enter your input"
-                            found_enter_input = False
-                            empty_line_count = 0
+                    # Look for (finished) marker
+                    if "(finished)" in output:
+                        found_finished = True
+                        print("Found (finished) marker")
+                    
+                    # Look for end of performance table
+                    if found_finished and "--------------------------------------------------------------------------------------" in output:
+                        found_table_end = True
+                        print("Found end of performance table")
+                    
+                    # Look for next input prompt after table
+                    if found_table_end and "Enter your input" in output:
+                        print("Found next input prompt - response complete")
+                        break
                         
                 except queue.Empty:
+                    # If we found finished but no more output, wait a bit more
+                    if found_finished:
+                        print("Waiting for performance table...")
+                        time.sleep(1)
+                        continue
                     self._print_errors()
                     continue
             
             if all_raw_lines:
-                # Remove the final "Enter your input" and empty lines from display
+                # Remove the final "Enter your input" from display
                 response_lines = []
                 for line in all_raw_lines:
                     if "Enter your input" in line:
