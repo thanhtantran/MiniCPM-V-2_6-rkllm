@@ -1,20 +1,20 @@
----
-tags:
-- rknn
-- rkllm
----
 # MiniCPM-V-2_6-rkllm
 
-Run the Powerful MiniCPM-V-2.6 Visual Language Model on RK3588!
+Run the Powerful MiniCPM-V-2.6 Visual Language Model on Orange Pi RK3588!
 
-- Inference speed (RK3588): Visual encoder 3.2s (triple core parallel) + LLM prefill 1.7s (92 tokens / 53 tps) + decoding 4.03 tps
-- Memory usage (RK3588, default context length): Visual encoder 1.9GB + LLM 7.8GB = 9.7GB
+- Inference speed (RK3588): Visual encoder + LLM prefill  + decoding => very fast
+- Memory usage (RK3588, default context length): Visual encoder 1.9GB + LLM 7.8GB + OS ~ 106 GB RAM (need to run on a 16BG RAM Orange Pi
 
 ## Usage
 
-1. Clone or download this repository locally. The model is large, so make sure you have enough disk space.
+1. Clone or download this repository locally. The models is not included, they will be downloaded from Hugging face while running the ap
+
+```bash
+git clone https://github.com/thanhtantran/MiniCPM-V-2_6-rkllm
+cd MiniCPM-V-2_6-rkllm
+```
    
-2. The RKNPU2 kernel driver version on the development board must be >=0.9.6 to run such a large model. 
+3. The RKNPU2 kernel driver version on the development board must be >=0.9.6 to run such a large model. 
    Use the following command with root privileges to check the driver version:
    ```bash
    > cat /sys/kernel/debug/rknpu/version 
@@ -22,20 +22,24 @@ Run the Powerful MiniCPM-V-2.6 Visual Language Model on RK3588!
    ```
    If the version is too low, please update the driver. You may need to update the kernel or refer to official documentation for help.
    
-3. Install dependencies
+4. Install dependencies
 
 ```bash
-pip install numpy<2 opencv-python 
+pip install -r requirements.txt
 ```
-You also need to manually install rknn-toolkit2-lite2.
+You also need to install rknn-toolkit2-lite, this can work with the latest rknn-toolkit2-lite so you can install by
+
+```bash
+pip install rknn-toolkit2-lite
+```
+In case you want to install specific rknn-toolkit2-lite, go to https://github.com/airockchip/rknn-toolkit2/tree/master/rknn-toolkit-lite2 and download it
 
 4. Run
    
 ```bash
-python multiprocess_inference.py
+streamlit run streamlit_app.py
 ```
-
-If the performance is not satisfactory, you can change the CPU scheduler to keep the CPU running at the highest frequency, and bind the inference program to the big core cluster (`taskset -c 4-7 python multiprocess_inference.py`).
+This app will run a a brower
 
 man.jpg:
 ![man.jpg](./man.jpg)
