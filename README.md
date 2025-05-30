@@ -38,7 +38,7 @@ pip install rknn-toolkit-lite2
 ```
 In case you want to install specific rknn-toolkit-lite2, go to https://github.com/airockchip/rknn-toolkit2/tree/master/rknn-toolkit-lite2 and download it
 
-This model works with RKNN lib 1.1.4, so if you don't have the lib, or have higher version lib, just replace
+This model works with RKLLM Runtime 1.1.4, so if you don't have the lib, or have higher version lib, just replace it
 
 ```bash
 sudo cp lib/* /usr/lib
