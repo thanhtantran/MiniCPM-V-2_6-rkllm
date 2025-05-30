@@ -7,12 +7,80 @@ import atexit
 from model_manager import ModelManager
 from subprocess_manager import StreamlitSubprocessManager
 
+def add_logo_and_header():
+    """Add Orange Pi logo to the top right corner"""
+    st.markdown(
+        """
+        <style>
+        .logo-container {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 999;
+            background: white;
+            padding: 5px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .logo-container img {
+            height: 40px;
+            width: auto;
+        }
+        </style>
+        <div class="logo-container">
+            <a href="http://orangepi.net" target="_blank">
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="Orange Pi Logo">
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+def add_footer():
+    """Add Orange Pi footer"""
+    st.markdown(
+        """
+        <style>
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #f1f1f1;
+            color: #333;
+            text-align: center;
+            padding: 10px 0;
+            border-top: 1px solid #ddd;
+            z-index: 999;
+        }
+        .footer a {
+            color: #ff6600;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .main .block-container {
+            padding-bottom: 60px;
+        }
+        </style>
+        <div class="footer">
+            <p>Copyright 2025 by <a href="https://orangepi.vn" target="_blank">Orange Pi Vietnam</a></p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 def main():
     st.set_page_config(
         page_title="MiniCPM-V-2.6 RKLLM Chat",
         page_icon="🤖",
         layout="wide"
     )
+    
+    # Add logo and footer
+    add_logo_and_header()
+    add_footer()
     
     st.title("🤖 MiniCPM-V-2.6 RKLLM Chat")
     st.markdown("Chat with images using MiniCPM-V-2.6 on RKLLM")
