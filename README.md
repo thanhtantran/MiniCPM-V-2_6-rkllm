@@ -1,3 +1,5 @@
+[🇻🇳 Xem bản tiếng Việt](README-VIE.md)
+
 # MiniCPM-V-2_6-rkllm
 
 Run the Powerful MiniCPM-V-2.6 Visual Language Model on Orange Pi RK3588!
