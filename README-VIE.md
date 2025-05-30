@@ -37,7 +37,7 @@ pip install rknn-toolkit-lite2
 ```
 Nếu bạn muốn cài phiên bản cụ thể của rknn-toolkit-lite2, hãy truy cập https://github.com/airockchip/rknn-toolkit2/tree/master/rknn-toolkit-lite2 và tải về
 
-Mô hình này sử dụng RKNN lib 1.1.4, nếu bạn chưa có hoặc có phiên bản cao hơn, hãy thay thế bằng
+Mô hình này sử dụng RKLLM Runtime 1.1.4, nếu bạn chưa có hoặc có phiên bản cao hơn, hãy thay thế bằng
 
 ```bash
 sudo cp lib/* /usr/lib
@@ -66,6 +66,10 @@ Bỏ qua cảnh báo "Failed to start inference process. Check console for detai
 7. Đặt câu hỏi và xem phản hồi phía dưới, kèm theo bảng hiệu suất.
 
 ![minicpm-demo3](https://github.com/user-attachments/assets/c1a61f09-ca17-4893-adcd-fcd11c6b6a43)
+
+Mô hình cũng hỗ trợ tiếng Việt, tuy nhiên cần phải finetune lại mô hình LLM vì câu trả lời rất là "ảo"
+
+![minicpm-demo4](https://github.com/user-attachments/assets/2749e018-14a4-4315-8178-93647144df03)
 
 ## Tham khảo
 
