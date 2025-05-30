@@ -19,11 +19,12 @@ cd MiniCPM-V-2_6-rkllm
    
 3. The RKNPU2 kernel driver version on the development board must be >=0.9.6 to run such a large model. 
    Use the following command with root privileges to check the driver version:
-   ```bash
-   > cat /sys/kernel/debug/rknpu/version 
-   RKNPU driver: v0.9.8
-   ```
-   If the version is too low, please update the driver. You may need to update the kernel or refer to official documentation for help.
+```bash
+sudo cat /sys/kernel/debug/rknpu/version 
+RKNPU driver: v0.9.8
+```
+If the version is too low, please download the latest OS to have updated RKNPU2 kernel driver. 
+You may need to update the kernel or refer to official documentation for help.
    
 4. Install dependencies, lib ...
 
