@@ -68,6 +68,8 @@ Forget the alert "Failed to start inference process. Check console for details."
 
 ![minicpm-demo3](https://github.com/user-attachments/assets/c1a61f09-ca17-4893-adcd-fcd11c6b6a43)
 
+The model also support Vietnamese, but need finetune more, because the answer is very hallucinated
+
 ## References
 
 - [sophgo/LLM-TPU models/MiniCPM-V-2_6](https://github.com/sophgo/LLM-TPU/tree/main/models/MiniCPM-V-2_6)
