@@ -3,7 +3,8 @@
 Run the Powerful MiniCPM-V-2.6 Visual Language Model on Orange Pi RK3588!
 
 - Inference speed (RK3588): Visual encoder + LLM prefill  + decoding => very fast
-- Memory usage (RK3588, default context length): Visual encoder 1.9GB + LLM 7.8GB + OS ~ 106 GB RAM (need to run on a 16BG RAM Orange Pi
+- Memory usage (RK3588, default context length): Visual encoder 1.9GB + LLM 7.8GB + OS ~ 10.6 GB RAM (need to run on a 16BG RAM Orange Pi
+- Streamlit web interface, upload your image and ask question with your image interactively.
 
 ## Usage
 
@@ -32,7 +33,7 @@ You also need to install rknn-toolkit2-lite, this can work with the latest rknn-
 ```bash
 pip install rknn-toolkit-lite2
 ```
-In case you want to install specific rknn-toolkit2-lite, go to https://github.com/airockchip/rknn-toolkit2/tree/master/rknn-toolkit-lite2 and download it
+In case you want to install specific rknn-toolkit-lite2, go to https://github.com/airockchip/rknn-toolkit2/tree/master/rknn-toolkit-lite2 and download it
 
 4. Run the app
    
@@ -45,7 +46,17 @@ Then you can go to your browser to use this app. The address is http://localhost
 
 ![minicpm-demo1](https://github.com/user-attachments/assets/5e893143-3387-4806-87e6-f75f02313296)
 
-6. Then 
+After models are ready, you can click Start Inference Process and wait until the Chat Interface apprear.
+
+Forget the alert "Failed to start inference process. Check console for details." I don't know why it appears, and too lazy to fix this.
+
+6. When you see the 💬 Chat Interface, click Upload image to upload your image to chat with
+
+![minicpm-demo2](https://github.com/user-attachments/assets/b8348ce2-f957-45dc-a0fd-8f1ec89efde8)
+
+7. Ask you question and the Response is bellow, along with performance table
+
+![minicpm-demo3](https://github.com/user-attachments/assets/c1a61f09-ca17-4893-adcd-fcd11c6b6a43)
 
 ## References
 
