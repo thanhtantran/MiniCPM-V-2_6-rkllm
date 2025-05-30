@@ -23,7 +23,7 @@ cd MiniCPM-V-2_6-rkllm
    ```
    If the version is too low, please update the driver. You may need to update the kernel or refer to official documentation for help.
    
-4. Install dependencies
+4. Install dependencies, lib ...
 
 ```bash
 pip install -r requirements.txt
@@ -34,6 +34,13 @@ You also need to install rknn-toolkit2-lite, this can work with the latest rknn-
 pip install rknn-toolkit-lite2
 ```
 In case you want to install specific rknn-toolkit-lite2, go to https://github.com/airockchip/rknn-toolkit2/tree/master/rknn-toolkit-lite2 and download it
+
+This model works with RKNN lib 1.1.4, so if you don't have the lib, or have higher version lib, just replace
+
+```bash
+sudo cp lib/* /usr/lib
+
+```
 
 4. Run the app
    
