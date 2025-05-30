@@ -1,35 +1,106 @@
-import os
 import streamlit as st
 from PIL import Image
 import atexit
+import os
 
 # Import the extracted modules
 from model_manager import ModelManager
 from subprocess_manager import StreamlitSubprocessManager
 
+def load_css():
+    """Load external CSS file"""
+    css_file = "css/styles.css"
+    if os.path.exists(css_file):
+        with open(css_file, "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    else:
+        # Fallback inline CSS if file doesn't exist
+        st.markdown(
+            """
+            <style>
+            .logo-container {
+                position: fixed;
+                top: 15px;
+                right: 15px;
+                z-index: 999;
+                background: rgba(255, 255, 255, 0.95);
+                padding: 8px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                backdrop-filter: blur(10px);
+                transition: all 0.3s ease;
+            }
+            .logo-container:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            }
+            .logo-container img {
+                height: 50px;
+                width: auto;
+                display: block;
+                border-radius: 4px;
+            }
+            .footer {
+                position: fixed;
+                left: 0;
+                bottom: 0;
+                width: 100%;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                color: #495057;
+                text-align: center;
+                padding: 12px 0;
+                border-top: 2px solid #ff6600;
+                z-index: 999;
+                font-size: 14px;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            }
+            .footer a {
+                color: #ff6600;
+                text-decoration: none;
+                font-weight: 600;
+                transition: color 0.3s ease;
+            }
+            .footer a:hover {
+                color: #e55a00;
+                text-decoration: underline;
+            }
+            .main .block-container {
+                padding-bottom: 70px;
+            }
+            @media (max-width: 768px) {
+                .logo-container {
+                    top: 10px;
+                    right: 10px;
+                    padding: 6px;
+                }
+                .logo-container img {
+                    height: 40px;
+                }
+                .footer {
+                    font-size: 12px;
+                    padding: 10px 5px;
+                }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
 def add_logo_and_header():
     """Add Orange Pi logo to the top right corner"""
+    logo_path = "static/logo2.png"
+    
+    # Check if logo exists, fallback to logo1.png if logo2.png is not found
+    if not os.path.exists(logo_path):
+        logo_path = "logo2.png"  # Direct path if not in static folder yet
+        if not os.path.exists(logo_path):
+            logo_path = "logo1.png"  # Final fallback
+    
     st.markdown(
-        """
-        <style>
-        .logo-container {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 999;
-            background: white;
-            padding: 5px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .logo-container img {
-            height: 40px;
-            width: auto;
-        }
-        </style>
+        f"""
         <div class="logo-container">
-            <a href="http://orangepi.net" target="_blank">
-                <img src="./logo1.png" alt="Orange Pi Logo">
+            <a href="http://orangepi.net" target="_blank" title="Visit Orange Pi">
+                <img src="{logo_path}" alt="Orange Pi Logo">
             </a>
         </div>
         """,
@@ -40,32 +111,8 @@ def add_footer():
     """Add Orange Pi footer"""
     st.markdown(
         """
-        <style>
-        .footer {
-            position: fixed;
-            left: 0;
-            bottom: 0;
-            width: 100%;
-            background-color: #f1f1f1;
-            color: #333;
-            text-align: center;
-            padding: 10px 0;
-            border-top: 1px solid #ddd;
-            z-index: 999;
-        }
-        .footer a {
-            color: #ff6600;
-            text-decoration: none;
-        }
-        .footer a:hover {
-            text-decoration: underline;
-        }
-        .main .block-container {
-            padding-bottom: 60px;
-        }
-        </style>
         <div class="footer">
-            <p>Copyright 2025 by <a href="https://orangepi.vn" target="_blank">Orange Pi Vietnam</a></p>
+            <p>Copyright 2025 by <a href="https://orangepi.vn" target="_blank" title="Visit Orange Pi Vietnam">Orange Pi Vietnam</a></p>
         </div>
         """,
         unsafe_allow_html=True
@@ -78,7 +125,8 @@ def main():
         layout="wide"
     )
     
-    # Add logo and footer
+    # Load CSS and add UI elements
+    load_css()
     add_logo_and_header()
     add_footer()
     

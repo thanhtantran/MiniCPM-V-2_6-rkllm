@@ -1,0 +1,90 @@
+/* Logo styling */
+.logo-container {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    z-index: 999;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.logo-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+
+.logo-container img {
+    height: 50px;
+    width: auto;
+    display: block;
+    border-radius: 4px;
+}
+
+/* Footer styling */
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    color: #495057;
+    text-align: center;
+    padding: 12px 0;
+    border-top: 2px solid #ff6600;
+    z-index: 999;
+    font-size: 14px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+}
+
+.footer a {
+    color: #ff6600;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.footer a:hover {
+    color: #e55a00;
+    text-decoration: underline;
+}
+
+/* Main content padding to avoid footer overlap */
+.main .block-container {
+    padding-bottom: 70px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .logo-container {
+        top: 10px;
+        right: 10px;
+        padding: 6px;
+    }
+    
+    .logo-container img {
+        height: 40px;
+    }
+    
+    .footer {
+        font-size: 12px;
+        padding: 10px 5px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .logo-container {
+        background: rgba(33, 37, 41, 0.95);
+        box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+    }
+    
+    .footer {
+        background: linear-gradient(135deg, #212529 0%, #343a40 100%);
+        color: #f8f9fa;
+        border-top-color: #ff6600;
+    }
+}
