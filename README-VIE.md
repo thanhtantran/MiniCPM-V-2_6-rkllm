@@ -17,11 +17,13 @@ cd MiniCPM-V-2_6-rkllm
    
 3. Phiên bản driver RKNPU2 trên bo mạch phải >=0.9.6 để chạy mô hình lớn như vậy. 
    Sử dụng lệnh sau với quyền root để kiểm tra phiên bản driver:
-   ```bash
-   > cat /sys/kernel/debug/rknpu/version 
-   RKNPU driver: v0.9.8
-   ```
-   Nếu phiên bản quá thấp, hãy cập nhật driver. Có thể bạn cần cập nhật kernel hoặc tham khảo tài liệu chính thức để biết thêm.
+   
+```bash
+sudo cat /sys/kernel/debug/rknpu/version 
+RKNPU driver: v0.9.8
+```
+Nếu phiên bản quá thấp, hãy tải về và cài lại bản hệ điều hành mới nhất để có driver RKNPU2 cao hơn. 
+Hoặc bạn có thể bạn cần cập nhật kernel hoặc tham khảo tài liệu chính thức để biết thêm.
    
 4. Cài đặt các thư viện phụ thuộc ...
 
