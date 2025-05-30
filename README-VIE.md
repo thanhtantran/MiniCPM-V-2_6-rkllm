@@ -51,7 +51,7 @@ streamlit run streamlit_app.py
 ```
 Sau đó, mở trình duyệt và truy cập ứng dụng tại địa chỉ http://localhost:8501 or http://YOUR_ORANGEPI_IP:8501
 
-Bước đầu tiên, tải mô hình bằng cách nhấn nút tương ứng. Việc này mất vài phút, bạn có thể tranh thủ uống cà phê. Chỉ cần làm một lần nếu mô hình đã có sẵn.
+Bước đầu tiên, tải mô hình bằng cách nhấn nút tương ứng. Việc này mất vài phút, bạn có thể tranh thủ uống cà phê. Chỉ cần làm một lần nếu mô hình chưa có sẵn.
 
 ![minicpm-demo1](https://github.com/user-attachments/assets/5e893143-3387-4806-87e6-f75f02313296)
 
