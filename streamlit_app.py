@@ -29,7 +29,7 @@ def add_logo_and_header():
         </style>
         <div class="logo-container">
             <a href="http://orangepi.net" target="_blank">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="Orange Pi Logo">
+                <img src="./logo1.png" alt="Orange Pi Logo">
             </a>
         </div>
         """,
