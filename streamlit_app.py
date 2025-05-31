@@ -88,19 +88,11 @@ def load_css():
 
 def add_logo_and_header():
     """Add Orange Pi logo to the top right corner"""
-    logo_path = "static/logo2.png"
-    
-    # Check if logo exists, fallback to logo1.png if logo2.png is not found
-    if not os.path.exists(logo_path):
-        logo_path = "logo2.png"  # Direct path if not in static folder yet
-        if not os.path.exists(logo_path):
-            logo_path = "logo1.png"  # Final fallback
-    
     st.markdown(
         f"""
         <div class="logo-container">
             <a href="http://orangepi.net" target="_blank" title="Visit Orange Pi">
-                <img src="{logo_path}" alt="Orange Pi Logo">
+                <img src="./static/logo2.png" alt="Orange Pi Logo">
             </a>
         </div>
         """,
